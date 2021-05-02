@@ -1,0 +1,368 @@
+<template>
+  ##{{getTest}}###
+  <button v-for="forecastValues in getForecastValues" :key="forecastValues">{{forecastValues}}</button>
+</template>
+
+<script lang="ts">
+import { Options, Vue } from 'vue-class-component'
+
+@Options({
+  name: 'ForecastButtons'
+})
+export default class ForecastButtons extends Vue {
+  private forecastValues: number[] = []
+  private forecastValuesSteps: number[] = [2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 100000, 200000, 500000]
+  private usedValuesCount = 0
+  private usedValues:number[] = []
+  private highestSingleValuBelow = 0
+
+  private getNearestLower (value:number): number {
+    console.log('getNearestLower')
+    let current = 0
+    let last = 0
+    do {
+      last = current
+      for (let i = this.forecastValuesSteps.length; i >= 0; i--) {
+        if ((value / 10) > this.forecastValuesSteps[i]) break
+        if ((this.forecastValuesSteps[i] + current) < value) {
+          current += this.forecastValuesSteps[i]
+          console.log('current changed')
+          console.log(current)
+          break
+        }
+      }
+      console.log(`${current}:${last}`)
+    } while (last !== current)
+    /*
+    this.forecastValuesSteps.forEach((current) => {
+      // if (current === value) return current
+      if (current > value) return current
+      console.log(current)
+      console.log(value)
+      last = current
+    })
+    */
+    return last
+  }
+
+  private getNearestHigherWithOneStep (nearestLower:number, toPayValue:number, nearestHighers: number[]): number[] {
+    console.log('getNearestHigherWithOneStep')
+    console.log(nearestLower)
+    console.log(toPayValue)
+    let nearestHigher = 0
+    let added = false
+    for (let i = 0; i < this.forecastValuesSteps.length; i++) {
+      if (!added) {
+        nearestHigher = this.forecastValuesSteps[i] + nearestLower
+        if (nearestHigher > toPayValue) {
+          if (!nearestHighers.includes(nearestHigher)) {
+            console.log('byAdded')
+            console.log(nearestHigher)
+            nearestHighers.push(nearestHigher)
+            if (nearestHigher === (Math.ceil(nearestHigher / 10) * 10)) {
+              added = true
+            }
+          }
+        }
+      }
+      if (this.forecastValuesSteps[i] > toPayValue) {
+        if (!nearestHighers.includes(this.forecastValuesSteps[i])) {
+          console.log('byAdded')
+          console.log(this.forecastValuesSteps[i])
+          nearestHighers.push(this.forecastValuesSteps[i])
+        }
+      }
+      if (nearestHighers.length > 4) return nearestHighers
+    }
+    return this.getNearestHigherWithOneStep(nearestHigher, toPayValue, nearestHighers)
+  }
+
+  private calcutateNextPossibleGivenValue (toPayValue:number, found:number[]): number[] {
+    const nearestLower = this.getNearestLower(toPayValue)
+    console.log('nearestLower')
+    console.log(nearestLower)
+    // if (nearestLower === toPayValue) return nearestLower
+    return this.getNearestHigherWithOneStep(nearestLower, toPayValue, found)
+  }
+
+  private withOneStepHigher (toPayValue:number): boolean {
+    for (let i = 0; i < this.forecastValuesSteps.length; i++) {
+      if (this.forecastValuesSteps[i] >= toPayValue) return false
+      if (this.forecastValuesSteps[i] >= toPayValue) {
+        if (!this.forecastValues.includes(this.forecastValuesSteps[i])) {
+          console.log('withOneStepHigher push')
+          console.log(this.forecastValuesSteps[i])
+          this.forecastValues.push(this.forecastValuesSteps[i])
+          return true
+        }
+      }
+    }
+    return false
+  }
+
+  private withTwoStepsHigher (toPayValue:number): boolean {
+    console.log('withTwoStepsHigher')
+    let oneStepLower = 0
+    for (let i = this.forecastValuesSteps.length; i >= 0; i--) {
+      if (this.forecastValuesSteps[i] <= toPayValue) {
+        oneStepLower = this.forecastValuesSteps[i]
+        break
+      }
+    }
+    console.log(oneStepLower)
+    if (this.forecastValues.includes(oneStepLower)) return false
+    for (let i = 0; i < this.forecastValuesSteps.length; i++) {
+      if (this.forecastValuesSteps[i] >= toPayValue) return false
+      if ((oneStepLower + this.forecastValuesSteps[i]) >= toPayValue) {
+        if (!this.forecastValues.includes(oneStepLower + this.forecastValuesSteps[i])) {
+          console.log('withTwoStepsHigher push')
+          console.log(oneStepLower + this.forecastValuesSteps[i])
+          this.forecastValues.push(oneStepLower + this.forecastValuesSteps[i])
+          return true
+        }
+      }
+    }
+    return false
+  }
+
+  private withThreeStepsHigher (toPayValue:number): boolean {
+    console.log(`withThreeStepsHigher${toPayValue}`)
+    let oneStepLower = 0
+    for (let i = this.forecastValuesSteps.length; i >= 0; i--) {
+      if (this.forecastValuesSteps[i] <= toPayValue) {
+        oneStepLower = this.forecastValuesSteps[i]
+        break
+      }
+    }
+    console.log(`firstStep${oneStepLower}`)
+    if (this.forecastValues.includes(oneStepLower)) return false
+    for (let i = this.forecastValuesSteps.length; i >= 0; i--) {
+      if ((oneStepLower + this.forecastValuesSteps[i]) <= toPayValue) {
+        oneStepLower += this.forecastValuesSteps[i]
+        break
+      }
+    }
+    console.log(`secondStep${oneStepLower}`)
+    if (this.forecastValues.includes(oneStepLower)) return false
+    for (let i = 0; i < this.forecastValuesSteps.length; i++) {
+      if (this.forecastValuesSteps[i] >= toPayValue) return false
+      if ((oneStepLower + this.forecastValuesSteps[i]) >= toPayValue) {
+        if (!this.forecastValues.includes(oneStepLower + this.forecastValuesSteps[i])) {
+          console.log('withThreeStepsHigher push')
+          console.log(oneStepLower + this.forecastValuesSteps[i])
+          this.forecastValues.push(oneStepLower + this.forecastValuesSteps[i])
+          return true
+        }
+      }
+    }
+    return false
+  }
+
+  private addAmountAndKeepBelow (keepBelowMaxValue:number, maxValue:number, returnAddValue:boolean): number {
+    console.log('addAmountAndKeepBelow')
+    console.log(`keepBelowMaxValue${keepBelowMaxValue}`)
+    console.log(`maxValue${maxValue}`)
+    for (let i = this.forecastValuesSteps.length; i >= 0; i--) {
+      if ((this.forecastValuesSteps[i] + keepBelowMaxValue) <= maxValue) {
+        if (returnAddValue) {
+          console.log(`return${this.forecastValuesSteps[i]}`)
+          return this.forecastValuesSteps[i]
+        } else {
+          return (keepBelowMaxValue + this.forecastValuesSteps[i])
+        }
+      }
+    }
+    console.log(keepBelowMaxValue)
+    return 0
+  }
+  /*
+  private withFourStepsHigher (toPayValue:number): void {
+    console.log('withFourStepsHigher')
+    let keepBelowToPayValue = 0
+    let lastValue = 0
+    console.log('starting while loop')
+
+    console.log(`this.allowedSteps${this.allowedSteps}`)
+    for (let steps = this.allowedSteps; steps >= 0; steps--) {
+      keepBelowToPayValue = this.addAmountAndKeepBelow(keepBelowToPayValue, toPayValue, false)
+      if (lastValue === keepBelowToPayValue) {
+        this.allowedSteps = this.allowedSteps - (this.allowedSteps - steps)
+        console.log(`reducing this.allowedSteps${this.allowedSteps}`)
+        break
+      }
+      lastValue = keepBelowToPayValue
+    }
+
+    if (this.forecastValues.includes(keepBelowToPayValue)) return
+    for (let i = 0; i < this.forecastValuesSteps.length; i++) {
+      if (this.forecastValuesSteps[i] >= toPayValue) return
+      if ((keepBelowToPayValue + this.forecastValuesSteps[i]) >= toPayValue) {
+        if (!this.forecastValues.includes(keepBelowToPayValue + this.forecastValuesSteps[i])) {
+          console.log('withFourStepsHigher push')
+          console.log(keepBelowToPayValue + this.forecastValuesSteps[i])
+          this.forecastValues.push(keepBelowToPayValue + this.forecastValuesSteps[i])
+          break
+        }
+      }
+    }
+  }
+  */
+
+  private addLowestPossible (toAddValue:number, toPayValue:number): number {
+    for (let i = 0; i < this.forecastValuesSteps.length; i++) {
+      if ((toAddValue + this.forecastValuesSteps[i]) >= toPayValue) {
+        if (!this.forecastValues.includes(toAddValue + this.forecastValuesSteps[i])) {
+          return (toAddValue + this.forecastValuesSteps[i])
+        }
+      }
+    }
+    return toAddValue
+  }
+
+  private fillUpToFiveWithSinglePiecePay (toPayValue:number): void {
+    console.log('fillUpToFiveWithSinglePiecePay')
+    for (let i = 0; i < this.forecastValuesSteps.length; i++) {
+      if (this.forecastValuesSteps[i] > toPayValue) {
+        if (!this.forecastValues.includes(this.forecastValuesSteps[i])) {
+          this.forecastValues.push(this.forecastValuesSteps[i])
+        }
+      }
+      if (this.forecastValues.length > 4) return
+    }
+  }
+
+  private round (value:number, precision:number):number {
+    const multiplier = Math.pow(10, precision || 0)
+    return Math.round(value * multiplier) / multiplier
+  }
+  /*
+  private addNearestRoundedUp (toPayValue:number): void {
+    console.log('addNearestRoundedUp')
+    let keepBelowToPayValue = 0
+    let newValue = 0
+    do {
+      keepBelowToPayValue = newValue
+      newValue = this.addAmountAndKeepBelow(keepBelowToPayValue, toPayValue)
+    } while (newValue > keepBelowToPayValue)
+
+    newValue = Math.ceil(keepBelowToPayValue / 10) * 10
+    console.log(newValue)
+    // newValue = this.round(keepBelowToPayValue, ((keepBelowToPayValue.toString().length - 0) * -1))
+    if (newValue > toPayValue) {
+      this.forecastValues.push(newValue)
+    }
+  }
+  */
+  /*
+  private addNearestRoundedUp (toPayValue:number): void {
+    console.log('addNearestRoundedUp')
+    this.forecastValues.push(Math.ceil(toPayValue / 100) * 100)
+  }
+  */
+
+  private addNearestWithMinParts (toPayValue:number): void {
+    console.log('addNearestWithMinParts')
+    const keepBelowToPayValue = this.addAmountAndKeepBelow(0, toPayValue, false)
+    console.log(`keepBelowToPayValue${keepBelowToPayValue}`)
+    const nearestWithMinParts = this.addLowestPossible(keepBelowToPayValue, toPayValue)
+    console.log(`nearestWithMinParts${nearestWithMinParts}`)
+    this.forecastValues.push(nearestWithMinParts)
+  }
+
+  private addNearestRoundedUp (toPayValue:number): void {
+    this.highestSingleValuBelow = this.addAmountAndKeepBelow(0, toPayValue, false)
+    console.log(`highestSingleValuBelow${this.highestSingleValuBelow}`)
+    const rest = toPayValue - this.highestSingleValuBelow
+    console.log(`rest${rest}`)
+    const restRoundedUp = Math.ceil(rest / 100) * 100
+    console.log(`restRoundedUp${restRoundedUp}`)
+    let temp = 0
+    let becomeHigherThanRestRoundedUp = 0
+    do {
+      temp = this.addAmountAndKeepBelow(becomeHigherThanRestRoundedUp, restRoundedUp, true)
+      console.log(`temp${temp}`)
+      // if ((becomeHigherThanRestRoundedUp + temp) > restRoundedUp) break
+      becomeHigherThanRestRoundedUp += temp
+      console.log(`becomeHigherThanRestRoundedUp${becomeHigherThanRestRoundedUp}`)
+      this.usedValuesCount++
+      this.usedValues.push(temp)
+    } while (temp > 0 && becomeHigherThanRestRoundedUp <= restRoundedUp)
+    this.forecastValues.push(becomeHigherThanRestRoundedUp + this.highestSingleValuBelow)
+  }
+
+  private meldPairInHigherValue (toMeld: number[]) : void {
+    console.log('meldPairInHigherValue')
+    let meldValuesSum = 0
+    let i
+    for (i = 0; i < toMeld.length; i++) {
+      meldValuesSum += toMeld[i]
+    }
+    console.log(`meldValuesSum${meldValuesSum}`)
+    for (i = 0; i < this.forecastValuesSteps.length; i++) {
+      if (this.forecastValuesSteps[i] > meldValuesSum) {
+        this.usedValues.push(this.forecastValuesSteps[i])
+        return
+      }
+    }
+  }
+
+  get getForecastValues (): number[] {
+    const toPayValue = parseInt(this.$store.getters.getToPayValueString, 10)
+    this.usedValuesCount = 0
+    this.usedValues = []
+    console.log('toPayValue')
+    console.log(toPayValue)
+    this.forecastValues = []
+    if (toPayValue) {
+      this.forecastValues.push(toPayValue)
+      if (toPayValue > 100) {
+        this.addNearestRoundedUp(toPayValue)
+        if (this.usedValues.length > 1) {
+          const toMeldInHigherValue: number[] = this.usedValues.slice(-2)
+          this.meldPairInHigherValue(toMeldInHigherValue)
+        }
+      }
+      this.fillUpToFiveWithSinglePiecePay(toPayValue)
+
+      /*
+      this.allowedSteps--
+      if (this.allowedSteps > 0) {
+        this.withFourStepsHigher(toPayValue)
+        this.allowedSteps--
+      }
+      if (this.allowedSteps > 0) {
+        this.withFourStepsHigher(toPayValue)
+        this.allowedSteps--
+      }
+      this.fillUpToFiveWithSinglePiecePay(toPayValue)
+      */
+      /*
+      if (!this.withThreeStepsHigher(toPayValue)) {
+        this.fillUpToFiveWithSinglePicePay(toPayValue)
+      }
+      if (!this.withTwoStepsHigher(toPayValue)) {
+        this.fillUpToFiveWithSinglePicePay(toPayValue)
+      }
+      if (!this.withOneStepHigher(toPayValue)) {
+        this.fillUpToFiveWithSinglePicePay(toPayValue)
+      }
+      */
+      /*
+      let nextPossibleGivenValue: number = toPayValue
+      if (toPayValue > 10) {
+        nextPossibleGivenValue = Math.ceil(toPayValue / 10) * 10
+        this.forecastValues.push(nextPossibleGivenValue)
+      }
+      this.forecastValues.concat(this.calcutateNextPossibleGivenValue(toPayValue, this.forecastValues))
+      */
+    }
+    console.log('this.forecastValues')
+    console.log(this.forecastValues)
+    return this.forecastValues
+  }
+
+  get getTest (): string {
+    return this.$store.getters.getToPayValueString
+  }
+}
+</script>
